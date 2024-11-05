@@ -1,4 +1,4 @@
-#include "Vclktick.h"
+#include "Vtop.h"
 #include "verilated.h"
 #include "verilated_vcd_c.h"
 
@@ -8,17 +8,16 @@
 int main(int argc, char **argv, char **env)
 {
     int simcyc;     // simulation clock count
-    int tick;       // each clk cycle has two ticks for two edges
     int lights = 0; // state to toggle LED lights
 
     Verilated::commandArgs(argc, argv);
     // init top verilog instance
-    Vclktick *top = new Vclktick;
+    Vtop *top = new Vtop;
     // init trace dump
     Verilated::traceEverOn(true);
     VerilatedVcdC *tfp = new VerilatedVcdC;
     top->trace(tfp, 99);
-    tfp->open("clktick.vcd");
+    tfp->open("top.vcd");
 
     // init Vbuddy
     if (vbdOpen() != 1)
@@ -29,29 +28,24 @@ int main(int argc, char **argv, char **env)
     // initialize simulation inputs
     top->clk = 1;
     top->rst = 0;
-    top->en = 0;
     top->N = vbdValue();
 
     // run simulation for MAX_SIM_CYC clock cycles
     for (simcyc = 0; simcyc < MAX_SIM_CYC; simcyc++)
     {
         // dump variables into VCD file and toggle clock
-        for (tick = 0; tick < 2; tick++)
+        for (int edge = 0; edge < 2; edge++)
         {
-            tfp->dump(2 * simcyc + tick);
+            tfp->dump(2 * simcyc + edge);
             top->clk = !top->clk;
             top->eval();
         }
 
         // Display toggle neopixel
-        if (top->tick)
-        {
-            vbdBar(lights);
-            lights = lights ^ 0xFF;
-        }
+        vbdBar(top->data_out);
+        
         // set up input signals of testbench
         top->rst = (simcyc < 2); // assert reset for 1st cycle
-        top->en = (simcyc > 2);
         top->N = vbdValue();
         vbdCycle(simcyc);
 
